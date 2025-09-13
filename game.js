@@ -13,6 +13,8 @@
   const jumpBtn = document.getElementById('jumpBtn');
   const winOverlay = document.getElementById('winOverlay');
   const nextBtn = document.getElementById('nextBtn');
+  const musicBtn = document.getElementById('musicBtn');
+  const bgmEl = document.getElementById('bgm');
 
   // World constants
   const WORLD = {
@@ -54,6 +56,8 @@
   let dynamicBarriers = []; // Active only when player is short
   /** @type {Rect} */
   let goal;
+  /** @type {Rect[]} */
+  let hazards = [];
 
   const input = {
     left: false,
@@ -69,6 +73,7 @@
     // Build level
     staticColliders = [];
     dynamicBarriers = [];
+    hazards = [];
 
     // World boundaries (left/right walls)
     staticColliders.push({ x: -1000, y: 0, w: 1000, h: WORLD.height });
@@ -85,6 +90,15 @@
 
     // A barrier that is active only when player is short (requires tall form)
     dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
+
+    // Hazards: 5 ground obstacles to jump over
+    const baseX = 360;
+    const spacing = 95;
+    for (let i = 0; i < 5; i++) {
+      const width = 28 + (i % 2) * 6;
+      const height = 40 + (i % 3) * 12;
+      hazards.push({ x: baseX + i * spacing, y: WORLD.groundY - height, w: width, h: height });
+    }
 
     // Goal area
     goal = { x: 860, y: WORLD.groundY - 100, w: 60, h: 100 };
@@ -194,6 +208,15 @@
     if (player.vy > PLAYER.maxFallSpeed) player.vy = PLAYER.maxFallSpeed;
     resolveVertical(player.vy);
 
+    // Hazard collisions -> restart level
+    for (const spike of hazards) {
+      if (aabbIntersect(player, spike)) {
+        flashCanvas();
+        start();
+        break;
+      }
+    }
+
     // Win check
     if (aabbIntersect(player, goal)) {
       winOverlay.classList.remove('hidden');
@@ -232,6 +255,15 @@
       ctx.strokeStyle = 'rgba(255,90,95,0.35)';
       ctx.lineWidth = 2;
       for (const r of dynamicBarriers) ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    }
+
+    // Hazards
+    for (const r of hazards) {
+      // spike-like pillar
+      ctx.fillStyle = '#d94e4e';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = '#b13b3b';
+      ctx.fillRect(r.x + 3, r.y + 6, r.w - 6, r.h - 12);
     }
 
     // Goal
@@ -291,6 +323,7 @@
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
     winOverlay.classList.add('hidden');
+    updateMusicButton();
   }
 
   // Simple flash to indicate invalid action
@@ -329,6 +362,7 @@
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
   if (jumpBtn) bindTap(jumpBtn, attemptJump);
+  if (musicBtn) bindTap(musicBtn, toggleMusic);
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
@@ -349,7 +383,46 @@
     el.addEventListener('touchstart', (e) => { e.preventDefault(); handler(); }, { passive: false });
   }
 
+  // Music controls
+  let musicEnabled = false;
+  function updateMusicButton() {
+    if (!musicBtn) return;
+    musicBtn.textContent = `音乐：${musicEnabled ? '开' : '关'}`;
+  }
+  async function toggleMusic() {
+    if (!bgmEl) return;
+    try {
+      if (!musicEnabled) {
+        await bgmEl.play();
+        musicEnabled = true;
+      } else {
+        bgmEl.pause();
+        musicEnabled = false;
+      }
+      updateMusicButton();
+    } catch (err) {
+      flashCanvas();
+    }
+  }
+
+  // Autoplay after first interaction
+  function setupAutoplayOnce() {
+    const tryStart = () => {
+      if (musicEnabled || !bgmEl) return cleanup();
+      bgmEl.play().then(() => { musicEnabled = true; updateMusicButton(); cleanup(); }).catch(() => {});
+    };
+    const cleanup = () => {
+      window.removeEventListener('click', tryStart, true);
+      window.removeEventListener('keydown', tryStart, true);
+      window.removeEventListener('touchstart', tryStart, true);
+    };
+    window.addEventListener('click', tryStart, true);
+    window.addEventListener('keydown', tryStart, true);
+    window.addEventListener('touchstart', tryStart, true);
+  }
+
   // Kick off
   start();
+  setupAutoplayOnce();
 })();
 
