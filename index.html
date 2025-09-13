@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mr Box 小游戏</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="title">Mr Box</h1>
+      <canvas id="game" width="960" height="540"></canvas>
+
+      <div class="hud">
+        <div class="hud-left">
+          <div class="state">状态：<span id="stateText">矮</span></div>
+          <div class="hint">键盘：← → 移动，↑ 变高，↓ 变矮，R 重开</div>
+        </div>
+        <div class="hud-right">
+          <button id="restartBtn" class="btn">重开</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="dpad">
+          <button id="leftBtn" class="btn wide">← 左</button>
+          <button id="rightBtn" class="btn wide">右 →</button>
+        </div>
+        <div class="vpad">
+          <button id="tallBtn" class="btn">↑ 变高</button>
+          <button id="shortBtn" class="btn">↓ 变矮</button>
+        </div>
+      </div>
+
+      <div id="winOverlay" class="overlay hidden">
+        <div class="dialog">
+          <div class="msg">通关！🎉</div>
+          <button id="nextBtn" class="btn">再来一把</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./game.js"></script>
+  </body>
+  </html>
+
