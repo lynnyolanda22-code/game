@@ -10,12 +10,7 @@
   const rightBtn = document.getElementById('rightBtn');
   const tallBtn = document.getElementById('tallBtn');
   const shortBtn = document.getElementById('shortBtn');
-  const jumpBtn = document.getElementById('jumpBtn');
-  const winOverlay = document.getElementById('winOverlay');
-  const nextBtn = document.getElementById('nextBtn');
-  const musicPlayBtn = document.getElementById('musicPlayBtn');
-  const musicStopBtn = document.getElementById('musicStopBtn');
-  const bgmEl = document.getElementById('bgm');
+
 
   // World constants
   const WORLD = {
@@ -27,30 +22,11 @@
     ground: '#1a233a',
     accents: '#2a60ff'
   };
-  // Logical unit size (pixels per unit)
-  const UNIT = 20;
+
 
   // Player constants
   const PLAYER = {
     baseWidth: 50,
-    // Height bounds in units
-    minUnits: 3, // 3 units tall minimum
-    maxUnits: 6, // 6 units tall maximum
-    speed: 3.2,
-    gravity: 0.6,
-    jumpVelocity: 10.5,
-    maxFallSpeed: 18
-  };
-
-
-  const player = {
-    x: 60,
-    y: 0, // will be set in reset
-    w: PLAYER.baseWidth,
-    h: unitsToPx(PLAYER.minUnits),
-    isTall: false,
-    color: '#ffc93d',
-    vy: 0,
 
   };
 
@@ -60,8 +36,7 @@
   let dynamicBarriers = []; // Active only when player is short
   /** @type {Rect} */
   let goal;
-  /** @type {Rect[]} */
-  let hazards = [];
+
 
   const input = {
     left: false,
@@ -71,24 +46,18 @@
   function resetLevel() {
     // Reset player
     player.x = 60;
-    player.heightUnits = PLAYER.minUnits;
-    player.h = unitsToPx(player.heightUnits);
-    player.isTall = false;
 
 
     // Build level
     staticColliders = [];
     dynamicBarriers = [];
-    hazards = [];
+
 
     // World boundaries (left/right walls)
     staticColliders.push({ x: -1000, y: 0, w: 1000, h: WORLD.height });
     staticColliders.push({ x: WORLD.width, y: 0, w: 1000, h: WORLD.height });
 
-    // Ground ceiling tunnel (overhead obstacle): bottom is 9 units above ground
-    // Ceiling slab: from x=320 to 520, bottom is groundY - 9*UNIT
-    const ceilingTopY = 0;
-    const ceilingHeightFromTop = WORLD.groundY - (9 * UNIT); // top down to this Y
+
     staticColliders.push({ x: 320, y: ceilingTopY, w: 200, h: ceilingHeightFromTop });
 
     // A solid block to the left to encourage going right
@@ -97,72 +66,13 @@
     // A barrier that is active only when player is short (requires tall form)
     dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
 
-    // Ground obstacles (non-lethal): 5 obstacles with heights 1..5 units
-    const baseX = 360;
-    const spacing = 100;
-    const heightUnitsList = [3, 4, 3, 5, 6];
-    for (let i = 0; i < 5; i++) {
-      const hu = Math.max(1, Math.min(5, heightUnitsList[i] || 2));
-      const heightPx = unitsToPx(hu);
-      const widthPx = unitsToPx(1); // 1 unit wide
-      hazards.push({ x: baseX + i * spacing, y: WORLD.groundY - heightPx, w: widthPx, h: heightPx });
-    }
 
     // Goal area
     goal = { x: 860, y: WORLD.groundY - 100, w: 60, h: 100 };
   }
 
   function setHeight(tall, silent = false) {
-    // Growth +7 units, Shrink -2 units (clamped)
-    const deltaUnits = tall ? 7 : -2;
-    attemptHeightUnitsChange(deltaUnits, silent);
-  }
 
-  function attemptHeightUnitsChange(deltaUnits, silent = false) {
-    const targetUnits = Math.max(PLAYER.minUnits, Math.min(PLAYER.maxUnits, player.heightUnits + deltaUnits));
-    if (targetUnits === player.heightUnits) return;
-    const prevUnits = player.heightUnits;
-    const prevH = player.h;
-    const nextH = unitsToPx(targetUnits);
-    const deltaPx = nextH - prevH;
-    const prevY = player.y;
-    // Anchor by feet
-    player.y = player.y - deltaPx;
-    player.h = nextH;
-    // If collision, try smaller step (only when shrinking by 2)
-    if (collidesWithAny(activeColliders())) {
-      // revert and attempt minimal step in same direction
-      player.y = prevY;
-      player.h = prevH;
-      const stepUnits = deltaUnits > 0 ? 1 : -1;
-      const tryUnits = Math.max(PLAYER.minUnits, Math.min(PLAYER.maxUnits, player.heightUnits + stepUnits));
-      if (tryUnits !== player.heightUnits) {
-        const tryH = unitsToPx(tryUnits);
-        const tryDelta = tryH - prevH;
-        player.y = prevY - tryDelta;
-        player.h = tryH;
-        if (collidesWithAny(activeColliders())) {
-          // revert if still colliding
-          player.y = prevY;
-          player.h = prevH;
-          if (!silent) flashCanvas();
-          return;
-        } else {
-          player.heightUnits = tryUnits;
-        }
-      } else {
-        if (!silent) flashCanvas();
-        return;
-      }
-    } else {
-      player.heightUnits = targetUnits;
-    }
-    // Update grounded based on feet
-    if (player.y + player.h > WORLD.groundY) {
-      player.y = WORLD.groundY - player.h;
-    }
-    // Update tall flag: treat as tall only at max height
-    player.isTall = player.heightUnits >= PLAYER.maxUnits;
     if (!silent) updateStateText();
   }
 
@@ -171,9 +81,7 @@
   }
 
   function activeColliders() {
-    // Dynamic barriers only block when player is short; hazards always block
-    const base = player.isTall ? staticColliders : staticColliders.concat(dynamicBarriers);
-    return base.concat(hazards);
+
   }
 
   function aabbIntersect(a, b) {
@@ -206,32 +114,6 @@
     }
   }
 
-  function resolveVertical(dy) {
-    if (dy === 0) return;
-    const step = Math.sign(dy) * 1;
-    let remaining = Math.abs(dy);
-
-        break;
-      }
-      remaining -= 1;
-    }
-    }
-  }
-
-  function update() {
-    const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    const intendedMove = dx * PLAYER.speed;
-    const prevX = player.x;
-    resolveHorizontal(intendedMove);
-    const blockedHoriz = Math.abs(player.x - prevX) + 0.001 < Math.abs(intendedMove);
-
-    // Auto-jump when blocked and on ground
-    if (blockedHoriz && dx !== 0 && player.onGround) {
-      requestJump();
-    }
-
-    // Gravity and vertical motion
-
 
     // Win check
     if (aabbIntersect(player, goal)) {
@@ -239,11 +121,6 @@
     }
   }
 
-  function requestJump() {
-    if (!player.onGround) return;
-    player.vy = PHYSICS.jumpVel;
-    player.onGround = false;
-  }
 
   function drawBackground() {
     // Sky
@@ -279,14 +156,6 @@
       for (const r of dynamicBarriers) ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
     }
 
-    // Hazards
-    for (const r of hazards) {
-      // spike-like pillar
-      ctx.fillStyle = '#d94e4e';
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.fillStyle = '#b13b3b';
-      ctx.fillRect(r.x + 3, r.y + 6, r.w - 6, r.h - 12);
-    }
 
     // Goal
     ctx.fillStyle = '#31d17c';
@@ -345,7 +214,7 @@
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
     winOverlay.classList.add('hidden');
-    updateMusicButtons();
+
   }
 
   // Simple flash to indicate invalid action
@@ -404,65 +273,6 @@
     el.addEventListener('touchstart', (e) => { e.preventDefault(); handler(); }, { passive: false });
   }
 
-  // Music controls (separate start/stop)
-  let musicEnabled = false;
-  function updateMusicButtons() {
-    if (musicPlayBtn) musicPlayBtn.disabled = musicEnabled;
-    if (musicStopBtn) musicStopBtn.disabled = !musicEnabled;
-  }
-  async function playMusic() {
-    if (!bgmEl) return;
-    try {
-      await bgmEl.play();
-      musicEnabled = true;
-      updateMusicButtons();
-    } catch (err) {
-      flashCanvas();
-    }
-  }
-  function stopMusic() {
-    if (!bgmEl) return;
-    bgmEl.pause();
-    musicEnabled = false;
-    updateMusicButtons();
-  }
 
-  // Autoplay after first interaction
-  function setupAutoplayOnce() {
-    const tryStart = () => {
-      if (musicEnabled || !bgmEl) return cleanup();
-      // Try autoplay directly
-      bgmEl.play()
-        .then(() => { musicEnabled = true; updateMusicButtons(); cleanup(); })
-        .catch(() => {
-          // Fallback: play muted, then unmute on user interaction
-          bgmEl.muted = true;
-          bgmEl.play().then(() => {
-            const unmute = () => { bgmEl.muted = false; musicEnabled = true; updateMusicButtons(); cleanupUnmute(); };
-            const cleanupUnmute = () => {
-              window.removeEventListener('click', unmute, true);
-              window.removeEventListener('keydown', unmute, true);
-              window.removeEventListener('touchstart', unmute, true);
-            };
-            window.addEventListener('click', unmute, true);
-            window.addEventListener('keydown', unmute, true);
-            window.addEventListener('touchstart', unmute, true);
-            cleanup();
-          }).catch(() => {});
-        });
-    };
-    const cleanup = () => {
-      window.removeEventListener('click', tryStart, true);
-      window.removeEventListener('keydown', tryStart, true);
-      window.removeEventListener('touchstart', tryStart, true);
-    };
-    window.addEventListener('click', tryStart, true);
-    window.addEventListener('keydown', tryStart, true);
-    window.addEventListener('touchstart', tryStart, true);
-  }
-
-  // Kick off
-  start();
-  setupAutoplayOnce();
 })();
 
