@@ -450,7 +450,25 @@
   function setupAutoplayOnce() {
     const tryStart = () => {
       if (musicEnabled || !bgmEl) return cleanup();
-      bgmEl.play().then(() => { musicEnabled = true; updateMusicButton(); cleanup(); }).catch(() => {});
+      // Try autoplay directly
+      bgmEl.play()
+        .then(() => { musicEnabled = true; updateMusicButton(); cleanup(); })
+        .catch(() => {
+          // Fallback: play muted, then unmute on user interaction
+          bgmEl.muted = true;
+          bgmEl.play().then(() => {
+            const unmute = () => { bgmEl.muted = false; musicEnabled = true; updateMusicButton(); cleanupUnmute(); };
+            const cleanupUnmute = () => {
+              window.removeEventListener('click', unmute, true);
+              window.removeEventListener('keydown', unmute, true);
+              window.removeEventListener('touchstart', unmute, true);
+            };
+            window.addEventListener('click', unmute, true);
+            window.addEventListener('keydown', unmute, true);
+            window.addEventListener('touchstart', unmute, true);
+            cleanup();
+          }).catch(() => {});
+        });
     };
     const cleanup = () => {
       window.removeEventListener('click', tryStart, true);
