@@ -10,6 +10,7 @@
   const rightBtn = document.getElementById('rightBtn');
   const tallBtn = document.getElementById('tallBtn');
   const shortBtn = document.getElementById('shortBtn');
+  const jumpBtn = document.getElementById('jumpBtn');
   const winOverlay = document.getElementById('winOverlay');
   const nextBtn = document.getElementById('nextBtn');
 
@@ -29,7 +30,10 @@
     baseWidth: 50,
     shortHeight: 60,
     tallHeight: 120,
-    speed: 3.2
+    speed: 3.2,
+    gravity: 0.6,
+    jumpVelocity: 10.5,
+    maxFallSpeed: 18
   };
 
   /** @type {{x:number,y:number,w:number,h:number,isTall:boolean,color:string}} */
@@ -39,7 +43,9 @@
     w: PLAYER.baseWidth,
     h: PLAYER.shortHeight,
     isTall: false,
-    color: '#ffc93d'
+    color: '#ffc93d',
+    vy: 0,
+    grounded: false
   };
 
   /** @type {Rect[]} */
@@ -144,12 +150,49 @@
     }
   }
 
+  function resolveVertical(dy) {
+    if (dy === 0) return;
+    const step = Math.sign(dy) * 1;
+    let remaining = Math.abs(dy);
+    let landed = false;
+    while (remaining > 0) {
+      // Ground clamp if moving down
+      if (step > 0) {
+        const nextFeet = player.y + player.h + step;
+        if (nextFeet >= WORLD.groundY) {
+          player.y = WORLD.groundY - player.h;
+          player.vy = 0;
+          landed = true;
+          break;
+        }
+      }
+      player.y += step;
+      if (collidesWithAny(activeColliders())) {
+        player.y -= step;
+        player.vy = 0;
+        if (step > 0) landed = true; // landed on something
+        break;
+      }
+      remaining -= 1;
+    }
+    player.grounded = landed || (player.y + player.h >= WORLD.groundY - 0.001);
+  }
+
+  function attemptJump() {
+    if (player.grounded) {
+      player.vy = -PLAYER.jumpVelocity;
+      player.grounded = false;
+    }
+  }
+
   function update() {
     const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     resolveHorizontal(dx * PLAYER.speed);
 
-    // Clamp to ground by feet
-    player.y = WORLD.groundY - player.h;
+    // Gravity and vertical motion
+    player.vy += PLAYER.gravity;
+    if (player.vy > PLAYER.maxFallSpeed) player.vy = PLAYER.maxFallSpeed;
+    resolveVertical(player.vy);
 
     // Win check
     if (aabbIntersect(player, goal)) {
@@ -272,6 +315,7 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { setHeight(true); }
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { setHeight(false); }
+    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); attemptJump(); }
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
   window.addEventListener('keyup', (e) => {
@@ -284,6 +328,7 @@
   bindHold(rightBtn, (down) => { input.right = down; });
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
+  if (jumpBtn) bindTap(jumpBtn, attemptJump);
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
