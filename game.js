@@ -13,7 +13,8 @@
   const jumpBtn = document.getElementById('jumpBtn');
   const winOverlay = document.getElementById('winOverlay');
   const nextBtn = document.getElementById('nextBtn');
-  const musicBtn = document.getElementById('musicBtn');
+  const musicPlayBtn = document.getElementById('musicPlayBtn');
+  const musicStopBtn = document.getElementById('musicStopBtn');
   const bgmEl = document.getElementById('bgm');
 
   // World constants
@@ -106,7 +107,7 @@
     // Ground obstacles (non-lethal): 5 obstacles with heights 1..5 units
     const baseX = 360;
     const spacing = 100;
-    const heightUnitsList = [2, 3, 1, 4, 5];
+    const heightUnitsList = [3, 4, 3, 5, 6];
     for (let i = 0; i < 5; i++) {
       const hu = Math.max(1, Math.min(5, heightUnitsList[i] || 2));
       const heightPx = unitsToPx(hu);
@@ -119,8 +120,8 @@
   }
 
   function setHeight(tall, silent = false) {
-    // Interpret 'tall' as an action: grow by +1 unit, shrink by up to -2 units
-    const deltaUnits = tall ? 1 : -2;
+    // Growth +7 units, Shrink -2 units (clamped)
+    const deltaUnits = tall ? 7 : -2;
     attemptHeightUnitsChange(deltaUnits, silent);
   }
 
@@ -364,7 +365,7 @@
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
     winOverlay.classList.add('hidden');
-    updateMusicButton();
+    updateMusicButtons();
   }
 
   // Simple flash to indicate invalid action
@@ -403,7 +404,8 @@
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
   if (jumpBtn) bindTap(jumpBtn, attemptJump);
-  if (musicBtn) bindTap(musicBtn, toggleMusic);
+  if (musicPlayBtn) bindTap(musicPlayBtn, playMusic);
+  if (musicStopBtn) bindTap(musicStopBtn, stopMusic);
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
@@ -424,26 +426,27 @@
     el.addEventListener('touchstart', (e) => { e.preventDefault(); handler(); }, { passive: false });
   }
 
-  // Music controls
+  // Music controls (separate start/stop)
   let musicEnabled = false;
-  function updateMusicButton() {
-    if (!musicBtn) return;
-    musicBtn.textContent = `音乐：${musicEnabled ? '开' : '关'}`;
+  function updateMusicButtons() {
+    if (musicPlayBtn) musicPlayBtn.disabled = musicEnabled;
+    if (musicStopBtn) musicStopBtn.disabled = !musicEnabled;
   }
-  async function toggleMusic() {
+  async function playMusic() {
     if (!bgmEl) return;
     try {
-      if (!musicEnabled) {
-        await bgmEl.play();
-        musicEnabled = true;
-      } else {
-        bgmEl.pause();
-        musicEnabled = false;
-      }
-      updateMusicButton();
+      await bgmEl.play();
+      musicEnabled = true;
+      updateMusicButtons();
     } catch (err) {
       flashCanvas();
     }
+  }
+  function stopMusic() {
+    if (!bgmEl) return;
+    bgmEl.pause();
+    musicEnabled = false;
+    updateMusicButtons();
   }
 
   // Autoplay after first interaction
@@ -452,12 +455,12 @@
       if (musicEnabled || !bgmEl) return cleanup();
       // Try autoplay directly
       bgmEl.play()
-        .then(() => { musicEnabled = true; updateMusicButton(); cleanup(); })
+        .then(() => { musicEnabled = true; updateMusicButtons(); cleanup(); })
         .catch(() => {
           // Fallback: play muted, then unmute on user interaction
           bgmEl.muted = true;
           bgmEl.play().then(() => {
-            const unmute = () => { bgmEl.muted = false; musicEnabled = true; updateMusicButton(); cleanupUnmute(); };
+            const unmute = () => { bgmEl.muted = false; musicEnabled = true; updateMusicButtons(); cleanupUnmute(); };
             const cleanupUnmute = () => {
               window.removeEventListener('click', unmute, true);
               window.removeEventListener('keydown', unmute, true);
