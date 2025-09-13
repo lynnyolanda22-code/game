@@ -1,1 +1,5 @@
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
+git checkout -b game-branch
+git push origin game-branch
 
