@@ -10,6 +10,7 @@
   const rightBtn = document.getElementById('rightBtn');
   const tallBtn = document.getElementById('tallBtn');
   const shortBtn = document.getElementById('shortBtn');
+  const jumpBtn = document.getElementById('jumpBtn');
   const winOverlay = document.getElementById('winOverlay');
   const nextBtn = document.getElementById('nextBtn');
 
@@ -32,14 +33,23 @@
     speed: 3.2
   };
 
-  /** @type {{x:number,y:number,w:number,h:number,isTall:boolean,color:string}} */
+  // Physics constants
+  const PHYSICS = {
+    gravity: 0.8,
+    jumpVel: -12,
+    terminalVy: 20
+  };
+
+  /** @type {{x:number,y:number,w:number,h:number,isTall:boolean,color:string,vy:number,onGround:boolean}} */
   const player = {
     x: 60,
     y: WORLD.groundY - PLAYER.shortHeight,
     w: PLAYER.baseWidth,
     h: PLAYER.shortHeight,
     isTall: false,
-    color: '#ffc93d'
+    color: '#ffc93d',
+    vy: 0,
+    onGround: true
   };
 
   /** @type {Rect[]} */
@@ -59,6 +69,8 @@
     player.x = 60;
     player.isTall = false;
     setHeight(false, /*silent=*/true);
+    player.vy = 0;
+    player.onGround = true;
 
     // Build level
     staticColliders = [];
@@ -144,17 +156,63 @@
     }
   }
 
+  function resolveVertical(dy) {
+    if (dy === 0) return;
+    const step = Math.sign(dy) * 1;
+    let remaining = Math.abs(dy);
+    let collided = false;
+    while (remaining > 0) {
+      player.y += step;
+      // Ground plane collision
+      if (player.y + player.h > WORLD.groundY) {
+        player.y -= step;
+        collided = true;
+        break;
+      }
+      // Collider collision
+      if (collidesWithAny(activeColliders())) {
+        player.y -= step;
+        collided = true;
+        break;
+      }
+      remaining -= 1;
+    }
+    if (collided) {
+      if (dy > 0) {
+        player.onGround = true;
+      }
+      player.vy = 0;
+    }
+  }
+
   function update() {
     const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    resolveHorizontal(dx * PLAYER.speed);
+    const intendedMove = dx * PLAYER.speed;
+    const prevX = player.x;
+    resolveHorizontal(intendedMove);
+    const blockedHoriz = Math.abs(player.x - prevX) + 0.001 < Math.abs(intendedMove);
 
-    // Clamp to ground by feet
-    player.y = WORLD.groundY - player.h;
+    // Auto-jump when blocked and on ground
+    if (blockedHoriz && dx !== 0 && player.onGround) {
+      requestJump();
+    }
+
+    // Gravity and vertical motion
+    player.vy += PHYSICS.gravity;
+    if (player.vy > PHYSICS.terminalVy) player.vy = PHYSICS.terminalVy;
+    player.onGround = false;
+    resolveVertical(player.vy);
 
     // Win check
     if (aabbIntersect(player, goal)) {
       winOverlay.classList.remove('hidden');
     }
+  }
+
+  function requestJump() {
+    if (!player.onGround) return;
+    player.vy = PHYSICS.jumpVel;
+    player.onGround = false;
   }
 
   function drawBackground() {
@@ -272,6 +330,7 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { setHeight(true); }
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { setHeight(false); }
+    if (e.key === ' ') { requestJump(); }
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
   window.addEventListener('keyup', (e) => {
@@ -284,6 +343,7 @@
   bindHold(rightBtn, (down) => { input.right = down; });
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
+  if (jumpBtn) { bindTap(jumpBtn, () => requestJump()); }
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
