@@ -42,11 +42,7 @@
     maxFallSpeed: 18
   };
 
-  function unitsToPx(units) {
-    return units * UNIT;
-  }
 
-  /** @type {{x:number,y:number,w:number,h:number,isTall:boolean,color:string,vy:number,grounded:boolean,heightUnits:number}} */
   const player = {
     x: 60,
     y: 0, // will be set in reset
@@ -55,8 +51,7 @@
     isTall: false,
     color: '#ffc93d',
     vy: 0,
-    grounded: false,
-    heightUnits: PLAYER.minUnits
+
   };
 
   /** @type {Rect[]} */
@@ -79,9 +74,7 @@
     player.heightUnits = PLAYER.minUnits;
     player.h = unitsToPx(player.heightUnits);
     player.isTall = false;
-    player.vy = 0;
-    player.grounded = true;
-    player.y = WORLD.groundY - player.h;
+
 
     // Build level
     staticColliders = [];
@@ -217,52 +210,39 @@
     if (dy === 0) return;
     const step = Math.sign(dy) * 1;
     let remaining = Math.abs(dy);
-    let landed = false;
-    while (remaining > 0) {
-      // Ground clamp if moving down
-      if (step > 0) {
-        const nextFeet = player.y + player.h + step;
-        if (nextFeet >= WORLD.groundY) {
-          player.y = WORLD.groundY - player.h;
-          player.vy = 0;
-          landed = true;
-          break;
-        }
-      }
-      player.y += step;
-      if (collidesWithAny(activeColliders())) {
-        player.y -= step;
-        player.vy = 0;
-        if (step > 0) landed = true; // landed on something
+
         break;
       }
       remaining -= 1;
     }
-    player.grounded = landed || (player.y + player.h >= WORLD.groundY - 0.001);
-  }
-
-  function attemptJump() {
-    if (player.grounded) {
-      player.vy = -PLAYER.jumpVelocity;
-      player.grounded = false;
     }
   }
 
   function update() {
     const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    resolveHorizontal(dx * PLAYER.speed);
+    const intendedMove = dx * PLAYER.speed;
+    const prevX = player.x;
+    resolveHorizontal(intendedMove);
+    const blockedHoriz = Math.abs(player.x - prevX) + 0.001 < Math.abs(intendedMove);
+
+    // Auto-jump when blocked and on ground
+    if (blockedHoriz && dx !== 0 && player.onGround) {
+      requestJump();
+    }
 
     // Gravity and vertical motion
-    player.vy += PLAYER.gravity;
-    if (player.vy > PLAYER.maxFallSpeed) player.vy = PLAYER.maxFallSpeed;
-    resolveVertical(player.vy);
 
-    // Ground obstacles are non-lethal now; touching them has no effect
 
     // Win check
     if (aabbIntersect(player, goal)) {
       winOverlay.classList.remove('hidden');
     }
+  }
+
+  function requestJump() {
+    if (!player.onGround) return;
+    player.vy = PHYSICS.jumpVel;
+    player.onGround = false;
   }
 
   function drawBackground() {
@@ -390,7 +370,7 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { setHeight(true); }
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { setHeight(false); }
-    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); attemptJump(); }
+
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
   window.addEventListener('keyup', (e) => {
@@ -403,9 +383,7 @@
   bindHold(rightBtn, (down) => { input.right = down; });
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
-  if (jumpBtn) bindTap(jumpBtn, attemptJump);
-  if (musicPlayBtn) bindTap(musicPlayBtn, playMusic);
-  if (musicStopBtn) bindTap(musicStopBtn, stopMusic);
+
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
