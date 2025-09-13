@@ -10,8 +10,7 @@
   const rightBtn = document.getElementById('rightBtn');
   const tallBtn = document.getElementById('tallBtn');
   const shortBtn = document.getElementById('shortBtn');
-  const winOverlay = document.getElementById('winOverlay');
-  const nextBtn = document.getElementById('nextBtn');
+
 
   // World constants
   const WORLD = {
@@ -24,22 +23,11 @@
     accents: '#2a60ff'
   };
 
+
   // Player constants
   const PLAYER = {
     baseWidth: 50,
-    shortHeight: 60,
-    tallHeight: 120,
-    speed: 3.2
-  };
 
-  /** @type {{x:number,y:number,w:number,h:number,isTall:boolean,color:string}} */
-  const player = {
-    x: 60,
-    y: WORLD.groundY - PLAYER.shortHeight,
-    w: PLAYER.baseWidth,
-    h: PLAYER.shortHeight,
-    isTall: false,
-    color: '#ffc93d'
   };
 
   /** @type {Rect[]} */
@@ -49,6 +37,7 @@
   /** @type {Rect} */
   let goal;
 
+
   const input = {
     left: false,
     right: false
@@ -57,21 +46,18 @@
   function resetLevel() {
     // Reset player
     player.x = 60;
-    player.isTall = false;
-    setHeight(false, /*silent=*/true);
+
 
     // Build level
     staticColliders = [];
     dynamicBarriers = [];
 
+
     // World boundaries (left/right walls)
     staticColliders.push({ x: -1000, y: 0, w: 1000, h: WORLD.height });
     staticColliders.push({ x: WORLD.width, y: 0, w: 1000, h: WORLD.height });
 
-    // Ground ceiling tunnel: only short can pass under the low ceiling
-    // Ceiling slab: from x=320 to 520, ceiling sits 90px above ground
-    const ceilingTopY = 0;
-    const ceilingHeightFromTop = WORLD.groundY - 90; // top down to this Y
+
     staticColliders.push({ x: 320, y: ceilingTopY, w: 200, h: ceilingHeightFromTop });
 
     // A solid block to the left to encourage going right
@@ -80,27 +66,13 @@
     // A barrier that is active only when player is short (requires tall form)
     dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
 
+
     // Goal area
     goal = { x: 860, y: WORLD.groundY - 100, w: 60, h: 100 };
   }
 
   function setHeight(tall, silent = false) {
-    if (player.isTall === tall) return;
-    const nextHeight = tall ? PLAYER.tallHeight : PLAYER.shortHeight;
-    const delta = nextHeight - player.h;
-    // Anchor by feet: adjust y upward when growing, downward when shrinking
-    const prevY = player.y;
-    player.y = player.y - delta;
-    const prevH = player.h;
-    player.h = nextHeight;
-    // If this causes a collision, revert and do nothing
-    if (collidesWithAny(activeColliders())) {
-      player.y = prevY;
-      player.h = prevH;
-      if (!silent) flashCanvas();
-      return;
-    }
-    player.isTall = tall;
+
     if (!silent) updateStateText();
   }
 
@@ -109,9 +81,7 @@
   }
 
   function activeColliders() {
-    // Dynamic barriers only block when player is short
-    if (player.isTall) return staticColliders;
-    return staticColliders.concat(dynamicBarriers);
+
   }
 
   function aabbIntersect(a, b) {
@@ -144,18 +114,13 @@
     }
   }
 
-  function update() {
-    const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    resolveHorizontal(dx * PLAYER.speed);
-
-    // Clamp to ground by feet
-    player.y = WORLD.groundY - player.h;
 
     // Win check
     if (aabbIntersect(player, goal)) {
       winOverlay.classList.remove('hidden');
     }
   }
+
 
   function drawBackground() {
     // Sky
@@ -190,6 +155,7 @@
       ctx.lineWidth = 2;
       for (const r of dynamicBarriers) ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
     }
+
 
     // Goal
     ctx.fillStyle = '#31d17c';
@@ -248,6 +214,7 @@
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
     winOverlay.classList.add('hidden');
+
   }
 
   // Simple flash to indicate invalid action
@@ -272,6 +239,7 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { setHeight(true); }
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { setHeight(false); }
+
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
   window.addEventListener('keyup', (e) => {
@@ -284,6 +252,7 @@
   bindHold(rightBtn, (down) => { input.right = down; });
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
+
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
@@ -304,7 +273,6 @@
     el.addEventListener('touchstart', (e) => { e.preventDefault(); handler(); }, { passive: false });
   }
 
-  // Kick off
-  start();
+
 })();
 
