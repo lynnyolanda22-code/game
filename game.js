@@ -177,9 +177,9 @@
   }
 
   function activeColliders() {
-    // Dynamic barriers only block when player is short
-    if (player.isTall) return staticColliders;
-    return staticColliders.concat(dynamicBarriers);
+    // Dynamic barriers only block when player is short; hazards always block
+    const base = player.isTall ? staticColliders : staticColliders.concat(dynamicBarriers);
+    return base.concat(hazards);
   }
 
   function aabbIntersect(a, b) {
