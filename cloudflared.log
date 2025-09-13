@@ -53,3 +53,9 @@
 {"level":"info","time":"2025-09-13T13:30:16Z","message":"ICMP proxy will use fe80::802b:38ff:fe3d:bcd0 in zone eth0 as source for IPv6"}
 {"level":"info","time":"2025-09-13T13:30:16Z","message":"Starting metrics server on 127.0.0.1:20241/metrics"}
 {"level":"info","event":0,"connection":"b644bb3a-ea82-410d-a0fb-2e016409fbcd","connIndex":0,"location":"ord08","ip":"198.41.200.33","protocol":"http2","time":"2025-09-13T13:30:16Z","message":"Registered tunnel connection"}
+{"level":"info","connIndex":0,"time":"2025-09-13T13:54:11Z","message":"Lost connection with the edge"}
+{"level":"error","error":"Error shutting down control stream: context canceled","time":"2025-09-13T13:54:11Z","message":"failed to serve incoming request"}
+{"level":"error","event":0,"ip":"198.41.200.33","connIndex":0,"error":"connection with edge closed","time":"2025-09-13T13:54:11Z","message":"Serve tunnel error"}
+{"level":"info","event":0,"ip":"198.41.200.33","connIndex":0,"time":"2025-09-13T13:54:11Z","message":"Retrying connection in up to 1s"}
+{"level":"error","error":"connection with edge closed","connIndex":0,"time":"2025-09-13T13:54:12Z","message":"Connection terminated"}
+{"level":"info","event":0,"connection":"332ca71f-e703-4d24-8e2b-02dca6773771","connIndex":0,"location":"ord08","ip":"198.41.200.33","protocol":"http2","time":"2025-09-13T13:54:17Z","message":"Registered tunnel connection"}
