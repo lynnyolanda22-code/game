@@ -20,6 +20,7 @@
   const levelSelect = document.getElementById('levelSelect');
   const livesText = document.getElementById('livesText');
   const fullResetBtn = document.getElementById('fullResetBtn');
+  const startBtn = document.getElementById('startBtn');
 
   // World constants
   const WORLD = {
@@ -124,7 +125,6 @@
       const cycle = [2, 3, 4, 5, 3, 4, 5];
       const huBase = cycle[i % cycle.length];
       const hu = Math.min(5, Math.max(2, huBase + Math.floor((currentLevel - 1) / 3)));
-      const hu = Math.max(2, Math.min(5, heightUnitsList[i] || 3));
       const heightPx = unitsToPx(hu);
       const widthPx = unitsToPx(1); // 1 unit wide
       hazards.push({ x: baseX + i * spacing, y: WORLD.groundY - heightPx, w: widthPx, h: heightPx });
@@ -595,8 +595,13 @@
     window.addEventListener('touchstart', tryStart, true);
   }
 
-  // Kick off
-  start();
+  // Kick off: render preview only; wait for Start button or key to begin
+  resetLevel();
+  updateStateText();
+  render();
+  if (startBtn) bindTap(startBtn, start);
+  // Also allow keyboard Enter to start
+  window.addEventListener('keydown', (e) => { if (e.key === 'Enter') { start(); } });
   setupAutoplayOnce();
 })();
 
