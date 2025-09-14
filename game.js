@@ -275,17 +275,18 @@
       if (b.age > b.maxAge) bubbles.splice(i, 1);
     }
 
-    // Detect clearing hazards: if player right side passes a hazard's right edge while
-    // being above its top, count as cleared once and show bubble
+    // Detect clearing hazards: only when the player was on the left before and now the
+    // right side passes the hazard right edge, and feet are above its top
     for (let i = 0; i < hazards.length; i++) {
       if (clearedHazards[i]) continue;
       const hz = hazards[i];
       const playerRight = player.x + player.w;
       const hazardRight = hz.x + hz.w;
       const playerBottom = player.y + player.h;
-      if (playerRight > hazardRight && playerBottom <= hz.y) {
+      const wasLeft = (player.x - PLAYER.speed) <= hazardRight; // approx previous step
+      if (wasLeft && playerRight > hazardRight && playerBottom <= hz.y) {
         clearedHazards[i] = true;
-        spawnBubble('MV Well Done', hz.x + hz.w / 2, hz.y - 12);
+        spawnBubble('Emily well done', hz.x + hz.w / 2, hz.y - 12);
       }
     }
 
