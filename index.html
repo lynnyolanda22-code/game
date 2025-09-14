@@ -14,7 +14,12 @@
       <div class="hud">
         <div class="hud-left">
           <div class="state">状态：<span id="stateText">矮</span></div>
-
+        </div>
+        <div class="hud-right">
+          <button id="restartBtn" class="btn">重开</button>
+          <button id="pauseBtn" class="btn">暂停</button>
+          <button id="musicPlayBtn" class="btn">音乐：开始</button>
+          <button id="musicStopBtn" class="btn">音乐：关闭</button>
         </div>
       </div>
 
@@ -26,7 +31,7 @@
         <div class="vpad">
           <button id="tallBtn" class="btn">↑ 变高</button>
           <button id="shortBtn" class="btn">↓ 变矮</button>
-
+          <button id="jumpBtn" class="btn">跳 跃</button>
         </div>
       </div>
 
@@ -38,6 +43,8 @@
       </div>
     </div>
 
+    <!-- 背景音乐（自动播放，移动端可能先静音再解禁） -->
+    <audio id="bgm" src="./bgm.mp3" preload="auto" loop autoplay playsinline></audio>
 
     <script src="./game.js"></script>
   </body>

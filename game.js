@@ -16,6 +16,7 @@
   const musicPlayBtn = document.getElementById('musicPlayBtn');
   const musicStopBtn = document.getElementById('musicStopBtn');
   const bgmEl = document.getElementById('bgm');
+  const pauseBtn = document.getElementById('pauseBtn');
 
   // World constants
   const WORLD = {
@@ -34,11 +35,11 @@
   const PLAYER = {
     baseWidth: 50,
     // Height bounds in units
-    minUnits: 3, // 3 units tall minimum
-    maxUnits: 6, // 6 units tall maximum
+    minUnits: 1, // 1 unit tall minimum
+    maxUnits: 7, // 7 units tall maximum
     speed: 3.2,
     gravity: 0.6,
-    jumpVelocity: 10.5,
+    jumpVelocity: 14,
     maxFallSpeed: 18
   };
 
@@ -69,6 +70,8 @@
   let hazards = [];
   /** @type {{x:number,y:number,age:number,maxAge:number,text:string}[]} */
   let bubbles = [];
+  /** @type {boolean[]} */
+  let clearedHazards = [];
 
   const input = {
     left: false,
@@ -89,6 +92,7 @@
     staticColliders = [];
     dynamicBarriers = [];
     hazards = [];
+    clearedHazards = [];
 
     // World boundaries (left/right walls)
     staticColliders.push({ x: -1000, y: 0, w: 1000, h: WORLD.height });
@@ -105,16 +109,17 @@
     // A barrier that is active only when player is short (requires tall form)
     dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
 
-    // Ground obstacles (solid): 5 obstacles with heights 3..6 units
+    // Ground obstacles (solid): 5 obstacles with heights 2..5 units
     const baseX = 360;
     const spacing = 100;
-    const heightUnitsList = [3, 4, 3, 5, 6];
+    const heightUnitsList = [2, 3, 4, 5, 2];
     for (let i = 0; i < 5; i++) {
-      const hu = Math.max(3, Math.min(6, heightUnitsList[i] || 3));
+      const hu = Math.max(2, Math.min(5, heightUnitsList[i] || 3));
       const heightPx = unitsToPx(hu);
       const widthPx = unitsToPx(1); // 1 unit wide
       hazards.push({ x: baseX + i * spacing, y: WORLD.groundY - heightPx, w: widthPx, h: heightPx });
     }
+    clearedHazards = new Array(hazards.length).fill(false);
 
     // Goal area
     goal = { x: 860, y: WORLD.groundY - 100, w: 60, h: 100 };
@@ -245,7 +250,7 @@
     if (player.grounded) {
       player.vy = -PLAYER.jumpVelocity;
       player.grounded = false;
-      spawnBubble('Emily Well Done', player.x + player.w / 2, player.y - 12);
+      spawnBubble('MV Well Done', player.x + player.w / 2, player.y - 12);
     }
   }
 
@@ -268,6 +273,20 @@
       b.age += 1;
       b.y -= 0.8;
       if (b.age > b.maxAge) bubbles.splice(i, 1);
+    }
+
+    // Detect clearing hazards: if player right side passes a hazard's right edge while
+    // being above its top, count as cleared once and show bubble
+    for (let i = 0; i < hazards.length; i++) {
+      if (clearedHazards[i]) continue;
+      const hz = hazards[i];
+      const playerRight = player.x + player.w;
+      const hazardRight = hz.x + hz.w;
+      const playerBottom = player.y + player.h;
+      if (playerRight > hazardRight && playerBottom <= hz.y) {
+        clearedHazards[i] = true;
+        spawnBubble('MV Well Done', hz.x + hz.w / 2, hz.y - 12);
+      }
     }
 
     // Win check
@@ -339,6 +358,12 @@
     roundedRect(ctx, player.x, player.y, player.w, player.h, 8);
     ctx.fillStyle = player.color;
     ctx.fill();
+    // Label 'Emily'
+    ctx.fillStyle = '#0a1a12';
+    ctx.font = 'bold 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+    const label = 'Emily';
+    const tw = ctx.measureText(label).width;
+    ctx.fillText(label, player.x + (player.w - tw) / 2, player.y + player.h - 10);
     // Eyes
     ctx.fillStyle = '#11162c';
     ctx.fillRect(player.x + 12, player.y + (player.h * 0.25), 8, 8);
@@ -423,8 +448,9 @@
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { input.left = true; }
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; }
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { setHeight(true); }
-    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { setHeight(false); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); attemptJump(); }
+    if (e.key === 'ArrowDown') { setHeight(false); }
+    if (e.key === 'w' || e.key === 'W') { setHeight(true); }
     if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); attemptJump(); }
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
