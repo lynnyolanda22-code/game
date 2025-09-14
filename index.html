@@ -14,9 +14,22 @@
       <div class="hud">
         <div class="hud-left">
           <div class="state">状态：<span id="stateText">矮</span></div>
+          <div class="state">关卡：
+            <select id="levelSelect" class="btn">
+              <option value="1">第1级</option>
+              <option value="2">第2级</option>
+              <option value="3">第3级</option>
+              <option value="4">第4级</option>
+              <option value="5">第5级</option>
+              <option value="6">第6级</option>
+              <option value="7">第7级</option>
+            </select>
+            <span id="livesText">生命：3</span>
+          </div>
         </div>
         <div class="hud-right">
           <button id="restartBtn" class="btn">重开</button>
+          <button id="fullResetBtn" class="btn">重新游戏</button>
           <button id="pauseBtn" class="btn">暂停</button>
           <button id="musicPlayBtn" class="btn">音乐：开始</button>
           <button id="musicStopBtn" class="btn">音乐：关闭</button>

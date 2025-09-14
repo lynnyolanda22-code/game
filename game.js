@@ -17,6 +17,9 @@
   const musicStopBtn = document.getElementById('musicStopBtn');
   const bgmEl = document.getElementById('bgm');
   const pauseBtn = document.getElementById('pauseBtn');
+  const levelSelect = document.getElementById('levelSelect');
+  const livesText = document.getElementById('livesText');
+  const fullResetBtn = document.getElementById('fullResetBtn');
 
   // World constants
   const WORLD = {
@@ -72,6 +75,9 @@
   let bubbles = [];
   /** @type {boolean[]} */
   let clearedHazards = [];
+  let currentLevel = 1;
+  let lives = 3;
+  let loseMsgEl = null;
 
   const input = {
     left: false,
@@ -109,11 +115,15 @@
     // A barrier that is active only when player is short (requires tall form)
     dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
 
-    // Ground obstacles (solid): 5 obstacles with heights 2..5 units
-    const baseX = 360;
-    const spacing = 100;
-    const heightUnitsList = [2, 3, 4, 5, 2];
-    for (let i = 0; i < 5; i++) {
+    // Ground obstacles by level: from 3 boxes up to 7 boxes, heights scaled 2..5u
+    const count = Math.min(7, Math.max(3, 2 + currentLevel));
+    const baseX = 320;
+    const spacing = Math.max(80, 120 - currentLevel * 8);
+    hazards = [];
+    for (let i = 0; i < count; i++) {
+      const cycle = [2, 3, 4, 5, 3, 4, 5];
+      const huBase = cycle[i % cycle.length];
+      const hu = Math.min(5, Math.max(2, huBase + Math.floor((currentLevel - 1) / 3)));
       const hu = Math.max(2, Math.min(5, heightUnitsList[i] || 3));
       const heightPx = unitsToPx(hu);
       const widthPx = unitsToPx(1); // 1 unit wide
@@ -180,6 +190,7 @@
 
   function updateStateText() {
     stateText.textContent = player.isTall ? '高' : '矮';
+    if (livesText) livesText.textContent = `生命：${lives}`;
   }
 
   function activeColliders() {
@@ -238,7 +249,18 @@
       if (collidesWithAny(activeColliders())) {
         player.y -= step;
         player.vy = 0;
-        if (step > 0) landed = true; // landed on something
+        if (step > 0) {
+          landed = true; // landed on something
+          // Death rule: if landed and feet are on top of a hazard, lose a life
+          for (let i = 0; i < hazards.length; i++) {
+            const hz = hazards[i];
+            const feetOnTop = (player.y + player.h) === hz.y && player.x + player.w > hz.x && player.x < hz.x + hz.w;
+            if (feetOnTop) {
+              loseLife();
+              break;
+            }
+          }
+        }
         break;
       }
       remaining -= 1;
@@ -413,6 +435,17 @@
     drawBubbles();
   }
 
+  function loseLife() {
+    lives = Math.max(0, lives - 1);
+    flashCanvas();
+    if (lives <= 0) {
+      // Game over -> reset lives and level, restart
+      lives = 3;
+      currentLevel = 1;
+    }
+    start();
+  }
+
   let rafId = 0;
   function loop() {
     update();
@@ -427,6 +460,17 @@
     rafId = requestAnimationFrame(loop);
     winOverlay.classList.add('hidden');
     updateMusicButtons();
+    // Level select init
+    if (levelSelect) {
+      levelSelect.value = String(currentLevel);
+      levelSelect.onchange = () => {
+        const val = parseInt(levelSelect.value, 10);
+        if (!isNaN(val)) {
+          currentLevel = Math.max(1, Math.min(7, val));
+          start();
+        }
+      };
+    }
   }
 
   // Simple flash to indicate invalid action
@@ -468,6 +512,7 @@
   if (jumpBtn) bindTap(jumpBtn, attemptJump);
   if (musicPlayBtn) bindTap(musicPlayBtn, playMusic);
   if (musicStopBtn) bindTap(musicStopBtn, stopMusic);
+  if (fullResetBtn) bindTap(fullResetBtn, () => { lives = 3; currentLevel = 1; start(); });
   restartBtn.addEventListener('click', start);
   nextBtn.addEventListener('click', start);
 
