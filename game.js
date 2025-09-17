@@ -43,7 +43,9 @@
     maxUnits: 7, // 7 units tall maximum
     speed: 3.2,
     gravity: 0.6,
-    jumpVelocity: 14,
+    jumpVelocity: 10,
+    jumpBoostFrames: 14,
+    jumpBoostAccel: 0.5,
     maxFallSpeed: 18
   };
 
@@ -76,13 +78,16 @@
   let bubbles = [];
   /** @type {boolean[]} */
   let clearedHazards = [];
+  /** @type {{x:number,y:number,w:number,h:number,vx:number,left:number,right:number}[]} */
+  let monsters = [];
   let currentLevel = 1;
   let lives = 3;
   let loseMsgEl = null;
 
   const input = {
     left: false,
-    right: false
+    right: false,
+    jumpHeld: false
   };
 
   function resetLevel() {
@@ -100,24 +105,21 @@
     dynamicBarriers = [];
     hazards = [];
     clearedHazards = [];
+    monsters = [];
 
     // World boundaries (left/right walls)
     staticColliders.push({ x: -1000, y: 0, w: 1000, h: WORLD.height });
     staticColliders.push({ x: WORLD.width, y: 0, w: 1000, h: WORLD.height });
 
-    // Overhead obstacle: bottom 9 units above ground, x 320..520
-    const ceilingTopY = 0;
-    const ceilingHeightFromTop = WORLD.groundY - (9 * UNIT);
-    staticColliders.push({ x: 320, y: ceilingTopY, w: 200, h: ceilingHeightFromTop });
+    // (Removed) Overhead obstacle for jump freedom
 
     // A solid block to the left to encourage going right
     staticColliders.push({ x: 180, y: WORLD.groundY - 80, w: 40, h: 80 });
 
-    // A barrier that is active only when player is short (requires tall form)
-    dynamicBarriers.push({ x: 650, y: WORLD.groundY - 140, w: 24, h: 140 });
+    // No dynamic barriers in new rules
 
-    // Ground obstacles by level: from 3 boxes up to 7 boxes, heights scaled 2..5u
-    const count = Math.min(7, Math.max(3, 2 + currentLevel));
+    // Ground obstacles by level: level N has N obstacles (1..7), heights 2..5u
+    const count = Math.min(7, Math.max(1, currentLevel));
     const baseX = 320;
     const spacing = Math.max(80, 120 - currentLevel * 8);
     hazards = [];
@@ -130,6 +132,17 @@
       hazards.push({ x: baseX + i * spacing, y: WORLD.groundY - heightPx, w: widthPx, h: heightPx });
     }
     clearedHazards = new Array(hazards.length).fill(false);
+
+    // Monsters: one per level, very slow patrol between obstacles
+    const mCount = count;
+    for (let i = 0; i < mCount; i++) {
+      const left = (hazards[i]?.x ?? baseX) - 20;
+      const right = left + Math.max(100, spacing * 0.9);
+      const mW = unitsToPx(1.2);
+      const mH = unitsToPx(1.6);
+      const startX = left + (right - left) * 0.5;
+      monsters.push({ x: startX, y: WORLD.groundY - mH, w: mW, h: mH, vx: (i % 2 === 0 ? 1 : -1) * 0.6, left, right });
+    }
 
     // Goal area
     goal = { x: 860, y: WORLD.groundY - 100, w: 60, h: 100 };
@@ -194,9 +207,8 @@
   }
 
   function activeColliders() {
-    // Dynamic barriers only block when player is short; hazards always block
-    const base = player.isTall ? staticColliders : staticColliders.concat(dynamicBarriers);
-    return base.concat(hazards);
+    // Obstacles and walls are solid and walkable; no lethal surfaces
+    return staticColliders.concat(hazards);
   }
 
   function aabbIntersect(a, b) {
@@ -250,16 +262,7 @@
         player.y -= step;
         player.vy = 0;
         if (step > 0) {
-          landed = true; // landed on something
-          // Death rule: if landed and feet are on top of a hazard, lose a life
-          for (let i = 0; i < hazards.length; i++) {
-            const hz = hazards[i];
-            const feetOnTop = (player.y + player.h) === hz.y && player.x + player.w > hz.x && player.x < hz.x + hz.w;
-            if (feetOnTop) {
-              loseLife();
-              break;
-            }
-          }
+          landed = true; // landed on something (can be hazard) but non-lethal
         }
         break;
       }
@@ -268,11 +271,15 @@
     player.grounded = landed || (player.y + player.h >= WORLD.groundY - 0.001);
   }
 
+  let isJumping = false;
+  let jumpBoostFramesLeft = 0;
   function attemptJump() {
     if (player.grounded) {
       player.vy = -PLAYER.jumpVelocity;
       player.grounded = false;
-      spawnBubble('MV Well Done', player.x + player.w / 2, player.y - 12);
+      isJumping = true;
+      jumpBoostFramesLeft = PLAYER.jumpBoostFrames;
+      spawnBubble('Emily Come On', player.x + player.w / 2, player.y - 12);
     }
   }
 
@@ -289,6 +296,12 @@
     if (player.vy > PLAYER.maxFallSpeed) player.vy = PLAYER.maxFallSpeed;
     resolveVertical(player.vy);
 
+    // Jump hold to modulate height
+    if (isJumping && input.jumpHeld && jumpBoostFramesLeft > 0 && player.vy < 0) {
+      player.vy -= PLAYER.jumpBoostAccel;
+      jumpBoostFramesLeft--;
+    }
+
     // Update bubbles (float up and fade out)
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const b = bubbles[i];
@@ -297,24 +310,31 @@
       if (b.age > b.maxAge) bubbles.splice(i, 1);
     }
 
-    // Detect clearing hazards: only when the player was on the left before and now the
-    // right side passes the hazard right edge, and feet are above its top
-    for (let i = 0; i < hazards.length; i++) {
-      if (clearedHazards[i]) continue;
-      const hz = hazards[i];
-      const playerRight = player.x + player.w;
-      const hazardRight = hz.x + hz.w;
-      const playerBottom = player.y + player.h;
-      const wasLeft = (player.x - PLAYER.speed) <= hazardRight; // approx previous step
-      if (wasLeft && playerRight > hazardRight && playerBottom <= hz.y) {
-        clearedHazards[i] = true;
-        spawnBubble('Emily well done', hz.x + hz.w / 2, hz.y - 12);
+    // Monsters patrol and collision effect (shrink if tall)
+    for (const m of monsters) {
+      m.x += m.vx;
+      if (m.x < m.left) { m.x = m.left; m.vx = Math.abs(m.vx); }
+      if (m.x + m.w > m.right) { m.x = m.right - m.w; m.vx = -Math.abs(m.vx); }
+      if (aabbIntersect(player, m)) {
+        if (player.isTall) {
+          // force shrink to min height, non-lethal
+          const delta = PLAYER.minUnits - player.heightUnits;
+          attemptHeightUnitsChange(delta, /*silent=*/false);
+        }
       }
     }
 
-    // Win check
-    if (aabbIntersect(player, goal)) {
-      winOverlay.classList.remove('hidden');
+    // Win/level advance: when passing the last hazard or touching goal
+    const lastHz = hazards[hazards.length - 1];
+    const passedLast = lastHz ? (player.x + player.w) > (lastHz.x + lastHz.w + 20) : false;
+    if (passedLast || (goal && aabbIntersect(player, goal))) {
+      if (currentLevel < 7) {
+        currentLevel++;
+        start();
+        if (levelSelect) levelSelect.value = String(currentLevel);
+      } else {
+        winOverlay.classList.remove('hidden');
+      }
     }
   }
 
@@ -341,16 +361,7 @@
     ctx.fillStyle = '#31406e';
     for (const r of staticColliders) ctx.fillRect(r.x, r.y, r.w, r.h);
 
-    // Dynamic barrier (only visible when active i.e., player short)
-    if (!player.isTall) {
-      ctx.fillStyle = '#ff5a5f';
-      for (const r of dynamicBarriers) ctx.fillRect(r.x, r.y, r.w, r.h);
-    } else {
-      // Hint outline when inactive
-      ctx.strokeStyle = 'rgba(255,90,95,0.35)';
-      ctx.lineWidth = 2;
-      for (const r of dynamicBarriers) ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
-    }
+    // (No dynamic barriers)
 
     // Hazards
     for (const r of hazards) {
@@ -359,6 +370,17 @@
       ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.fillStyle = '#b13b3b';
       ctx.fillRect(r.x + 3, r.y + 6, r.w - 6, r.h - 12);
+    }
+
+    // Monsters
+    for (const m of monsters) {
+      ctx.fillStyle = '#5ed1f3';
+      roundedRect(ctx, m.x, m.y, m.w, m.h, 6);
+      ctx.fill();
+      // eyes
+      ctx.fillStyle = '#0b2740';
+      ctx.fillRect(m.x + 6, m.y + 6, 4, 4);
+      ctx.fillRect(m.x + m.w - 10, m.y + 6, 4, 4);
     }
 
     // Goal
@@ -496,12 +518,13 @@
     if (e.key === 'ArrowUp') { e.preventDefault(); attemptJump(); }
     if (e.key === 'ArrowDown') { setHeight(false); }
     if (e.key === 'w' || e.key === 'W') { setHeight(true); }
-    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); attemptJump(); }
+    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); attemptJump(); input.jumpHeld = true; }
     if (e.key === 'r' || e.key === 'R') { start(); }
   });
   window.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { input.left = false; }
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = false; }
+    if (e.code === 'Space' || e.key === ' ') { input.jumpHeld = false; isJumping = false; }
   });
 
   // Inputs: on-screen buttons
@@ -509,7 +532,14 @@
   bindHold(rightBtn, (down) => { input.right = down; });
   bindTap(tallBtn, () => setHeight(true));
   bindTap(shortBtn, () => setHeight(false));
-  if (jumpBtn) bindTap(jumpBtn, attemptJump);
+  if (jumpBtn) {
+    jumpBtn.addEventListener('mousedown', (e) => { e.preventDefault(); attemptJump(); input.jumpHeld = true; });
+    jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); attemptJump(); input.jumpHeld = true; }, { passive: false });
+    const end = (e) => { e.preventDefault(); input.jumpHeld = false; isJumping = false; };
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchend', end, { passive: false });
+    window.addEventListener('touchcancel', end, { passive: false });
+  }
   if (musicPlayBtn) bindTap(musicPlayBtn, playMusic);
   if (musicStopBtn) bindTap(musicStopBtn, stopMusic);
   if (fullResetBtn) bindTap(fullResetBtn, () => { lives = 3; currentLevel = 1; start(); });
