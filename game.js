@@ -623,13 +623,14 @@
     window.addEventListener('touchstart', tryStart, true);
   }
 
-  // Kick off: render preview only; wait for Start button or key to begin
+  // Kick off: bind controls and auto-start (同时保留“开始游戏”和 Enter)
   resetLevel();
   updateStateText();
   render();
   if (startBtn) bindTap(startBtn, start);
-  // Also allow keyboard Enter to start
   window.addEventListener('keydown', (e) => { if (e.key === 'Enter') { start(); } });
   setupAutoplayOnce();
+  // 自动开始，避免用户未点击时画面停留预览
+  start();
 })();
 
