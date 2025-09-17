@@ -324,10 +324,8 @@
       }
     }
 
-    // Win/level advance: when passing the last hazard or touching goal
-    const lastHz = hazards[hazards.length - 1];
-    const passedLast = lastHz ? (player.x + player.w) > (lastHz.x + lastHz.w + 20) : false;
-    if (passedLast || (goal && aabbIntersect(player, goal))) {
+    // Win/level advance: ONLY when touching the goal flag
+    if (goal && aabbIntersect(player, goal)) {
       if (currentLevel < 7) {
         currentLevel++;
         start();
